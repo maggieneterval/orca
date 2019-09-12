@@ -57,10 +57,6 @@ public interface DeployStagePreProcessor {
       this.name = name;
       this.taskClass = taskClass;
     }
-
-    public Class getTaskClass() {
-      return taskClass;
-    }
   }
 
   class StageDefinition {

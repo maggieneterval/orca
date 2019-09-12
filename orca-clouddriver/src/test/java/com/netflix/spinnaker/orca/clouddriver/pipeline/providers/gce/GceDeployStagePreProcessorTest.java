@@ -24,10 +24,9 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.orca.clouddriver.pipeline.providers.aws.ApplySourceServerGroupCapacityStage;
-import com.netflix.spinnaker.orca.clouddriver.pipeline.providers.aws.CaptureSourceServerGroupCapacityTask;
+import com.netflix.spinnaker.orca.clouddriver.pipeline.providers.aws.CaptureSourceServerGroupCapacityStage;
 import com.netflix.spinnaker.orca.clouddriver.pipeline.servergroup.ResizeServerGroupStage;
 import com.netflix.spinnaker.orca.clouddriver.pipeline.servergroup.strategies.DeployStagePreProcessor.StageDefinition;
-import com.netflix.spinnaker.orca.clouddriver.pipeline.servergroup.strategies.DeployStagePreProcessor.StepDefinition;
 import com.netflix.spinnaker.orca.clouddriver.pipeline.servergroup.support.TargetServerGroup;
 import com.netflix.spinnaker.orca.clouddriver.pipeline.servergroup.support.TargetServerGroupResolver;
 import com.netflix.spinnaker.orca.pipeline.model.Stage;
@@ -46,6 +45,7 @@ class GceDeployStagePreProcessorTest {
   private GceDeployStagePreProcessor preProcessor;
   private ApplySourceServerGroupCapacityStage applySourceServerGroupCapacityStage;
   private ResizeServerGroupStage resizeServerGroupStage;
+  private CaptureSourceServerGroupCapacityStage captureSourceServerGroupCapacityStage;
 
   @Mock private TargetServerGroupResolver targetServerGroupResolver;
 
@@ -53,9 +53,13 @@ class GceDeployStagePreProcessorTest {
   void setUp() {
     applySourceServerGroupCapacityStage = new ApplySourceServerGroupCapacityStage();
     resizeServerGroupStage = new ResizeServerGroupStage();
+    captureSourceServerGroupCapacityStage = new CaptureSourceServerGroupCapacityStage();
     preProcessor =
         new GceDeployStagePreProcessor(
-            applySourceServerGroupCapacityStage, resizeServerGroupStage, targetServerGroupResolver);
+            applySourceServerGroupCapacityStage,
+            resizeServerGroupStage,
+            captureSourceServerGroupCapacityStage,
+            targetServerGroupResolver);
   }
 
   @Test
@@ -79,12 +83,7 @@ class GceDeployStagePreProcessorTest {
     // Before Stages
     List<StageDefinition> beforeStages = preProcessor.beforeStageDefinitions(stage);
     assertThat(beforeStages.stream().map(stageDefinition -> stageDefinition.stageDefinitionBuilder))
-        .containsExactly(resizeServerGroupStage);
-
-    // Additional Steps
-    List<StepDefinition> additionalSteps = preProcessor.additionalSteps(stage);
-    assertThat(additionalSteps.stream().map(StepDefinition::getTaskClass))
-        .containsExactly(CaptureSourceServerGroupCapacityTask.class);
+        .containsExactly(captureSourceServerGroupCapacityStage, resizeServerGroupStage);
 
     // After Stages
     List<StageDefinition> afterStages = preProcessor.afterStageDefinitions(stage);
@@ -100,6 +99,11 @@ class GceDeployStagePreProcessorTest {
 
   @Test
   void noneStrategyTest() {
+    when(targetServerGroupResolver.resolve(any()))
+        .thenReturn(
+            ImmutableList.of(
+                new TargetServerGroup(
+                    ImmutableMap.of("name", "testapp-v000", "zone", "us-central1-f"))));
     Stage stage = new Stage();
     Map<String, Object> context = new HashMap<>();
     context.put("strategy", "none");
@@ -113,12 +117,8 @@ class GceDeployStagePreProcessorTest {
 
     // Before Stages
     List<StageDefinition> beforeStages = preProcessor.beforeStageDefinitions(stage);
-    assertThat(beforeStages).isEmpty();
-
-    // Additional Steps
-    List<StepDefinition> additionalSteps = preProcessor.additionalSteps(stage);
-    assertThat(additionalSteps.stream().map(StepDefinition::getTaskClass))
-        .containsExactly(CaptureSourceServerGroupCapacityTask.class);
+    assertThat(beforeStages.stream().map(stageDefinition -> stageDefinition.stageDefinitionBuilder))
+        .containsExactly(captureSourceServerGroupCapacityStage);
 
     // After Stages
     List<StageDefinition> afterStages = preProcessor.afterStageDefinitions(stage);

@@ -20,7 +20,7 @@ import static com.netflix.spinnaker.orca.kato.pipeline.support.ResizeStrategySup
 
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.orca.clouddriver.pipeline.providers.aws.ApplySourceServerGroupCapacityStage;
-import com.netflix.spinnaker.orca.clouddriver.pipeline.providers.aws.CaptureSourceServerGroupCapacityTask;
+import com.netflix.spinnaker.orca.clouddriver.pipeline.providers.aws.CaptureSourceServerGroupCapacityStage;
 import com.netflix.spinnaker.orca.clouddriver.pipeline.servergroup.ResizeServerGroupStage;
 import com.netflix.spinnaker.orca.clouddriver.pipeline.servergroup.strategies.AbstractDeployStrategyStage;
 import com.netflix.spinnaker.orca.clouddriver.pipeline.servergroup.strategies.DeployStagePreProcessor;
@@ -29,6 +29,7 @@ import com.netflix.spinnaker.orca.kato.pipeline.strategy.Strategy;
 import com.netflix.spinnaker.orca.kato.pipeline.support.ResizeStrategy;
 import com.netflix.spinnaker.orca.kato.pipeline.support.StageData;
 import com.netflix.spinnaker.orca.pipeline.model.Stage;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -41,40 +42,41 @@ import org.springframework.stereotype.Component;
 public class GceDeployStagePreProcessor implements DeployStagePreProcessor {
   private final ApplySourceServerGroupCapacityStage applySourceServerGroupSnapshotStage;
   private final ResizeServerGroupStage resizeServerGroupStage;
+  private final CaptureSourceServerGroupCapacityStage captureSourceServerGroupCapacityStage;
   private final TargetServerGroupResolver targetServerGroupResolver;
 
   @Autowired
   public GceDeployStagePreProcessor(
       ApplySourceServerGroupCapacityStage applySourceServerGroupCapacityStage,
       ResizeServerGroupStage resizeServerGroupStage,
+      CaptureSourceServerGroupCapacityStage captureSourceServerGroupCapacityStage,
       TargetServerGroupResolver targetServerGroupResolver) {
     this.applySourceServerGroupSnapshotStage = applySourceServerGroupCapacityStage;
     this.resizeServerGroupStage = resizeServerGroupStage;
+    this.captureSourceServerGroupCapacityStage = captureSourceServerGroupCapacityStage;
     this.targetServerGroupResolver = targetServerGroupResolver;
-  }
-
-  @Override
-  public List<StepDefinition> additionalSteps(Stage stage) {
-    return ImmutableList.of(
-        new StepDefinition(
-            "snapshotSourceServerGroup", CaptureSourceServerGroupCapacityTask.class));
   }
 
   @Override
   public List<StageDefinition> beforeStageDefinitions(Stage stage) {
     StageData stageData = stage.mapTo(StageData.class);
+    List<StageDefinition> stageDefinitions = new ArrayList<>();
+    stageDefinitions.add(
+        new StageDefinition(
+            "captureSourceServerGroupCapacity",
+            captureSourceServerGroupCapacityStage,
+            getCaptureCapacityContext(stageData)));
     if (shouldPinSourceServerGroup(stageData.getStrategy())) {
       Map<String, Object> resizeContext = getResizeContext(stageData);
       resizeContext.put("pinMinimumCapacity", true);
-
-      return ImmutableList.of(
+      stageDefinitions.add(
           new StageDefinition(
               String.format("Pin %s", resizeContext.get("serverGroupName")),
               resizeServerGroupStage,
               resizeContext));
     }
 
-    return ImmutableList.of();
+    return stageDefinitions;
   }
 
   @Override
@@ -108,26 +110,35 @@ public class GceDeployStagePreProcessor implements DeployStagePreProcessor {
     return Strategy.fromStrategyKey(strategy) == Strategy.RED_BLACK;
   }
 
-  private Map<String, Object> getResizeContext(StageData stageData) {
+  private Map<String, Object> getBaseContext(StageData stageData) {
     AbstractDeployStrategyStage.CleanupConfig cleanupConfig =
         AbstractDeployStrategyStage.CleanupConfig.fromStage(stageData);
-    Map<String, Object> resizeContext = new HashMap<>();
+    Map<String, Object> baseContext = new HashMap<>();
 
-    resizeContext.put(
+    baseContext.put(
         cleanupConfig.getLocation().singularType(), cleanupConfig.getLocation().getValue());
-    resizeContext.put("cluster", cleanupConfig.getCluster());
-    resizeContext.put("moniker", cleanupConfig.getMoniker());
-    resizeContext.put("credentials", cleanupConfig.getAccount());
-    resizeContext.put("cloudProvider", cleanupConfig.getCloudProvider());
+    baseContext.put("cluster", cleanupConfig.getCluster());
+    baseContext.put("moniker", cleanupConfig.getMoniker());
+    baseContext.put("credentials", cleanupConfig.getAccount());
+    baseContext.put("cloudProvider", cleanupConfig.getCloudProvider());
+    return baseContext;
+  }
 
-    ResizeStrategy.Source source = getSource(targetServerGroupResolver, stageData, resizeContext);
-    resizeContext.put("serverGroupName", source.getServerGroupName());
-    resizeContext.put("action", ResizeStrategy.ResizeAction.scale_to_server_group);
-    resizeContext.put("source", source);
-    resizeContext.put(
-        "useNameAsLabel", true); // hint to deck that it should _not_ override the name
+  private Map<String, Object> getResizeContext(StageData stageData) {
+    Map<String, Object> context = getBaseContext(stageData);
+    ResizeStrategy.Source source = getSource(targetServerGroupResolver, stageData, context);
+    context.put("serverGroupName", source.getServerGroupName());
+    context.put("action", ResizeStrategy.ResizeAction.scale_to_server_group);
+    context.put("source", source);
+    context.put("useNameAsLabel", true); // hint to deck that it should _not_ override the name
+    return context;
+  }
 
-    return resizeContext;
+  private Map<String, Object> getCaptureCapacityContext(StageData stageData) {
+    Map<String, Object> context = getBaseContext(stageData);
+    context.put("source", getSource(targetServerGroupResolver, stageData, Collections.emptyMap()));
+    context.put("useSourceCapacity", true);
+    return context;
   }
 
   @Nullable
