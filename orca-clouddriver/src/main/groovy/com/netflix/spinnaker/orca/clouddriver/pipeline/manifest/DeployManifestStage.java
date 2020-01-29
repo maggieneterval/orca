@@ -46,6 +46,7 @@ public class DeployManifestStage implements StageDefinitionBuilder {
   @Override
   public void taskGraph(@Nonnull Stage stage, @Nonnull TaskNode.Builder builder) {
     builder
+        .withTask(ResolveDeploySourceManifestTask.TASK_NAME, ResolveDeploySourceManifestTask.class)
         .withTask(DeployManifestTask.TASK_NAME, DeployManifestTask.class)
         .withTask("monitorDeploy", MonitorKatoTask.class)
         .withTask(PromoteManifestKatoOutputsTask.TASK_NAME, PromoteManifestKatoOutputsTask.class)
