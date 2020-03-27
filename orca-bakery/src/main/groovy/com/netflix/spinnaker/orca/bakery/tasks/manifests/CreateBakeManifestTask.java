@@ -107,7 +107,7 @@ public class CreateBakeManifestTask implements RetryableTask {
 
     if (expectedArtifacts.size() != 1) {
       throw new IllegalArgumentException(
-          "Exactly one expected artifact must be supplied. Please ensure that your Bake stage config's `expectedArtifacts` list contains exactly one artifact.");
+          "Exactly one expected artifact must be supplied. Please ensure that your Bake (Manifest) stage config's `expectedArtifacts` list contains exactly one artifact. If you are configuring the stage in Deck, this maps to defining exactly one artifact in the Produces Artifacts section.");
     }
 
     String outputArtifactName = expectedArtifacts.get(0).getMatchArtifact().getName();
