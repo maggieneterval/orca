@@ -77,7 +77,7 @@ public class ResolveTargetManifestTask extends AbstractCloudProviderAwareTask im
     Map<String, Object> outputs =
         new ImmutableMap.Builder<String, Object>().put("manifestName", target.getName()).build();
 
-    return TaskResult.builder(ExecutionStatus.SUCCEEDED).context(outputs).outputs(outputs).build();
+    return TaskResult.builder(ExecutionStatus.SUCCEEDED).context(outputs).build();
   }
 
   private StageData fromStage(StageExecution stage) {

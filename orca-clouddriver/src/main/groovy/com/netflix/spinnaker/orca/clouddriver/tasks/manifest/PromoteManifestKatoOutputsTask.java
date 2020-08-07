@@ -88,7 +88,7 @@ public class PromoteManifestKatoOutputsTask implements Task {
         SHOULD_REFRESH_MANIFESTS_BY_NAMESPACE_TO_REFRESH_KEY,
         outputs.get(MANIFESTS_BY_NAMESPACE_TO_REFRESH_KEY) != null);
 
-    return TaskResult.builder(ExecutionStatus.SUCCEEDED).context(outputs).outputs(outputs).build();
+    return TaskResult.builder(ExecutionStatus.SUCCEEDED).context(outputs).build();
   }
 
   private void convertKey(Map<String, Object> outputs, String key, TypeReference tr) {

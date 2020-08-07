@@ -26,7 +26,6 @@ import com.netflix.spinnaker.orca.clouddriver.OortService;
 import com.netflix.spinnaker.orca.clouddriver.model.Manifest;
 import com.netflix.spinnaker.orca.clouddriver.model.Manifest.Status;
 import com.netflix.spinnaker.orca.clouddriver.utils.CloudProviderAware;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -89,10 +88,7 @@ public class WaitForManifestStableTask
           manifest = oortService.getManifest(account, location, name, false);
         } catch (RetrofitError e) {
           log.warn("Unable to read manifest {}", identifier, e);
-          return TaskResult.builder(ExecutionStatus.RUNNING)
-              .context(new HashMap<>())
-              .outputs(new HashMap<>())
-              .build();
+          return TaskResult.builder(ExecutionStatus.RUNNING).build();
         } catch (Exception e) {
           throw new RuntimeException(
               "Execution '"
@@ -143,17 +139,11 @@ public class WaitForManifestStableTask
     Map<String, Object> newContext = builder.build();
 
     if (anyIncomplete) {
-      return TaskResult.builder(ExecutionStatus.RUNNING)
-          .context(newContext)
-          .outputs(new HashMap<>())
-          .build();
+      return TaskResult.builder(ExecutionStatus.RUNNING).context(newContext).build();
     }
 
     if (failedManifests.isEmpty()) {
-      return TaskResult.builder(ExecutionStatus.SUCCEEDED)
-          .context(newContext)
-          .outputs(new HashMap<>())
-          .build();
+      return TaskResult.builder(ExecutionStatus.SUCCEEDED).context(newContext).build();
     } else {
       return TaskResult.builder(ExecutionStatus.TERMINAL).context(newContext).build();
     }

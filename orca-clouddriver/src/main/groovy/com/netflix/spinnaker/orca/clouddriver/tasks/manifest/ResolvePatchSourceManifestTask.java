@@ -45,7 +45,7 @@ public final class ResolvePatchSourceManifestTask implements Task {
     PatchManifestContext context = stage.mapTo(PatchManifestContext.class);
     ManifestEvaluator.Result result = manifestEvaluator.evaluate(stage, context);
     ImmutableMap<String, Object> outputs = getOutputs(result);
-    return TaskResult.builder(ExecutionStatus.SUCCEEDED).context(outputs).outputs(outputs).build();
+    return TaskResult.builder(ExecutionStatus.SUCCEEDED).context(outputs).build();
   }
 
   private ImmutableMap<String, Object> getOutputs(ManifestEvaluator.Result result) {
